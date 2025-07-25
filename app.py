@@ -1,28 +1,32 @@
+# app.py
 import streamlit as st
 from scraper import scrape_channel_videos
-from recommender import recommend_top
 
-st.title("🧠 YouTube Recommendation Engine")
+st.set_page_config(page_title="YouTube Channel Recommender", layout="wide")
+st.title("🎯 YouTube Channel Recommender")
 
-channels_input = st.text_area("Paste up to 200 YouTube channel URLs (one per line):")
-submit = st.button("Get Top 30 Videos")
+# User input: YouTube channel URLs (one per line)
+channel_urls_input = st.text_area("Paste YouTube channel URLs (one per line):", height=200)
+max_videos = st.slider("Max videos per channel", min_value=1, max_value=20, value=5)
 
-if submit:
-    channel_urls = channels_input.strip().split("\n")
-    all_videos = []
-    with st.spinner("Scraping channels..."):
+if st.button("🔍 Scrape & Recommend"):
+    with st.spinner("Scraping YouTube... Please wait."):
+        channel_urls = [url.strip() for url in channel_urls_input.split('\n') if url.strip()]
+        all_videos = []
+
         for url in channel_urls:
             try:
-                vids = scrape_channel_videos(url)
-                all_videos.extend(vids)
+                videos = scrape_channel_videos(url, max_videos=max_videos)
+                all_videos.extend(videos)
             except Exception as e:
-                st.warning(f"Failed to scrape {url}: {e}")
+                st.error(f"Error scraping {url}: {e}")
 
-    st.success(f"Scraped {len(all_videos)} videos.")
-
-    top_videos = recommend_top(all_videos)
-    st.subheader("📈 Top 30 Recommended Videos")
-    for vid in top_videos:
-        st.markdown(f"**{vid['title']}**")
-        st.markdown(f"[Watch now](https://www.youtube.com/watch?v={vid['id']}) — Views: {vid['view_count']}")
-        st.markdown("---")
+        if all_videos:
+            st.success(f"✅ Scraped {len(all_videos)} video(s) successfully.")
+            for video in all_videos:
+                st.markdown(f"### [{video['title']}]({video['url']})")
+                st.image(video['thumbnail'], width=320)
+                st.write(f"📅 Uploaded: {video['upload_date']} | 👁️ Views: {video['views']}")
+                st.markdown("---")
+        else:
+            st.warning("⚠️ No videos found. Channel may be invalid or private.")
