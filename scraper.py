@@ -1,32 +1,42 @@
-from yt_dlp import YoutubeDL
+# scraper.py
+import yt_dlp
+import time
 
 def scrape_channel_videos(channel_url, max_videos=10):
     ydl_opts = {
         'quiet': True,
-        'extract_flat': False,      # Get full video data (views, title, etc.)
-        'playlistend': max_videos,  # Limit number of videos
-        'skip_download': True
+        'extract_flat': True,
+        'force_generic_extractor': True,
     }
 
-    with YoutubeDL(ydl_opts) as ydl:
-        try:
-            data = ydl.extract_info(channel_url, download=False)
-        except Exception as e:
-            raise Exception(f"Failed to extract info: {e}")
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(channel_url, download=False)
 
-        entries = data.get('entries', [])
-        if not entries:
-            return []
+            if '_type' in info and info['_type'] == 'playlist':
+                entries = info.get('entries', [])[:max_videos]
+                videos = []
 
-        videos = []
-        for entry in entries:
-            videos.append({
-                'title': entry.get('title', 'N/A'),
-                'url': f"https://www.youtube.com/watch?v={entry.get('id')}",
-                'id': entry.get('id'),
-                'channel': entry.get('channel', 'Unknown'),
-                'view_count': entry.get('view_count', 0),
-                'upload_date': entry.get('upload_date', '')
-            })
+                for entry in entries:
+                    try:
+                        video_url = f"https://www.youtube.com/watch?v={entry['id']}"
+                        video_info = ydl.extract_info(video_url, download=False)
 
-        return videos
+                        videos.append({
+                            'title': video_info.get('title'),
+                            'url': video_url,
+                            'views': video_info.get('view_count', 0),
+                            'upload_date': video_info.get('upload_date'),
+                            'thumbnail': video_info.get('thumbnail'),
+                        })
+                    except Exception as ve:
+                        print(f"Skipped video: {ve}")
+                    time.sleep(0.5)
+
+                return videos
+            else:
+                print(f"Not a valid channel or playlist: {channel_url}")
+                return []
+    except Exception as e:
+        print(f"Error scraping {channel_url}: {e}")
+        return []
